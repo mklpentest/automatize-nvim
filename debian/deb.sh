@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefall
+set -euo pipefail
 
 NVIM_DIR="$HOME/.config/nvim"
 LAZYVIM_REPO="https://github.com/LazyVim/starter"
@@ -8,12 +8,12 @@ NVIM_MIN_VERSION="0.11.0"
 FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNerd"
 FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
 
-info()  { printf '\033[1;34m[*]\033[0m %s\n' "$*"; }
-ok()    { printf '\033[1;32m[*]\033[0m %s\n' "$*"; }
-warn()  { printf '\033[1;33m[*]\033[0m %s\n' "$*"; }
+info() { printf '\033[1;34m[*]\033[0m %s\n' "$*"; }
+ok() { printf '\033[1;32m[*]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[*]\033[0m %s\n' "$*"; }
 
 if [[ $EUID -eq 0 ]]; then
-  echo "No ejecutes el script como root. Se pedirá sudo cuando haga falta">&2
+  echo "No ejecutes el script como root. Se pedirá sudo cuando haga falta" >&2
   exit 1
 fi
 
@@ -31,8 +31,8 @@ install_pkgs() {
   fi
 }
 
-# Compara versiones 
-version_ge() { [[ "$printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" ]]; }
+# Compara versiones
+version_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | sed -n '1p')" == "$2" ]]; }
 
 info "Comprobando dependencias"
 install_pkgs git curl build-essential ripgrep fd-find unzip fontconfig \
@@ -45,17 +45,20 @@ if ! command -v fd &>/dev/null && command -v fdfind &>/dev/null; then
 fi
 
 case ":$PATH:" in
-  *":$HOME/.local/bin/:"*) ;;
-  *) warn "~/.local/bin no está en tu PATH; añádelo a ~/.bashrc o ~/.profile" ;;
+*":$HOME/.local/bin/:"*) ;;
+*) warn "~/.local/bin no está en tu PATH; añádelo a ~/.bashrc o ~/.profile" ;;
 esac
 
 # Neovim
 install_nvim_tarball() {
   local arch asset tmp
   case "$(unamme -m)" in
-    x86_64)           arch="x86_64" ;;
-    aarch64|arm64)    arch="arm64" ;;
-    *) echo "Arquitectura no soportada: $(uname -m)" >&2; exit 1 ;;
+  x86_64) arch="x86_64" ;;
+  aarch64 | arm64) arch="arm64" ;;
+  *)
+    echo "Arquitectura no soportada: $(uname -m)" >&2
+    exit 1
+    ;;
   esac
 
   asset="nvim-linux-$(arch)"
@@ -70,9 +73,11 @@ install_nvim_tarball() {
 }
 
 if command -v nvim &>/dev/null; then
-  current="$(nvim --version | head -n1 | sed -E 's/^NVIM v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
-  if version_ge "$current" "$NVIM_MIN_VERSION"; then
-    ok "Neovim ya instalado (v$current)"
+  current="$(nvim --version 2>/dev/null | sed -n '1s/^NVIM v\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' || true)"
+  if [[ -z "$current" ]]; then
+    warn "No se pudo leer la versión de Neovim, se asume como correcta"
+  elif version_ge "$current" "$NVIM_MIN_VERSION"; then
+    ok "Neovim ya instalado"
   else
     warn "Neovim v$current es demasiado antiguo. Instalando nuevo"
     install_nvim_tarball
